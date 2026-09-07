@@ -1,0 +1,46 @@
+-- Run only in an empty disposable project. Writes probe-result.txt beside this script.
+local dir = debug.getinfo(1,'S').source:sub(2):match('^(.*[/\\])')
+local log = {}
+local function check(v, msg) assert(v,msg); log[#log+1] = 'PASS '..msg end
+local ok, err = xpcall(function()
+  local p = reaper.EnumProjects(-1, '')
+  check(reaper.CountTracks(p)==0, 'empty disposable project')
+  log[#log+1] = 'REAPER '..reaper.GetAppVersion()
+  reaper.InsertTrackInProject(p, 0, 0)
+  local tr = reaper.GetTrack(p,0)
+  local it = reaper.CreateNewMIDIItemInProj(tr,0,4,true)
+  reaper.SetMediaItemInfo_Value(it,'B_LOOPSRC',0)
+  local tk = reaper.GetActiveTake(it)
+  local a = reaper.MIDI_GetPPQPosFromProjQN(tk,1)
+  local b = reaper.MIDI_GetPPQPosFromProjQN(tk,2)
+  check(reaper.MIDI_InsertNote(tk,true,false,a,b,0,60,97,false),'insert note')
+  local found,sel,mute,s,e,ch,pitch,vel = reaper.MIDI_GetNote(tk,0)
+  check(found and sel and not mute and pitch==60 and vel==97,'note round trip')
+  check(math.abs(reaper.MIDI_GetProjQNFromPPQPos(tk,s)-1)<1e-9,'QN conversion')
+  check(reaper.GetSetMediaItemInfo_String(it,'P_EXT:coreaperate','probe-item',true),'item ext write')
+  local _,id=reaper.GetSetMediaItemInfo_String(it,'P_EXT:coreaperate','',false)
+  check(id=='probe-item','item ext read')
+  check(reaper.GetSetMediaItemTakeInfo_String(tk,'P_EXT:coreaperate','probe-take',true),'take ext write')
+  reaper.SetProjExtState(p,'coreaperate','probe','yes')
+  local _,v=reaper.GetProjExtState(p,'coreaperate','probe')
+  check(v=='yes','project ext round trip')
+  local got,raw=reaper.MIDI_GetAllEvts(tk,'')
+  check(got,'raw MIDI read')
+  local pos,tick=1,0
+  while pos<=#raw do
+    local off,flags,msg; off,flags,msg,pos=string.unpack('i4Bs4',raw,pos); tick=tick+off
+    log[#log+1]=string.format('EVENT tick=%d flags=%d bytes=%s',tick,flags,(msg:gsub('.',function(c)return string.format('%02x',c:byte()) end)))
+  end
+  check(reaper.MIDI_SetAllEvts(tk,raw),'raw MIDI write')
+  reaper.SetMediaItemInfo_Value(it,'D_LENGTH',0.25)
+  local has,_,_,_,ending=reaper.MIDI_GetNote(tk,0)
+  check(has and ending==b,'right trim preserves hidden notes')
+  local tmp=dir..'probe-rename.tmp'; local dst=dir..'probe-rename.txt'
+  os.remove(dst)
+  local f=assert(io.open(tmp,'wb')); f:write('atomic'); f:close()
+  check(os.rename(tmp,dst),'same-directory rename')
+  os.remove(dst)
+  reaper.Main_SaveProjectEx(p,dir..'probe-project.rpp',0)
+end,debug.traceback)
+log[#log+1] = ok and 'SUCCESS' or ('FAIL '..tostring(err))
+local f=assert(io.open(dir..'probe-result.txt','wb')); f:write(table.concat(log,'\n')); f:close()

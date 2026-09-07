@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coreaperate"
+version = "0.1.0"
+description = "Experimental two-person MIDI collaboration for REAPER"
+requires-python = ">=3.11"
+dependencies = ["websockets==17.0.1"]
+
+[project.scripts]
+coreaperate = "coreaperate.cli:main"
+
+[tool.setuptools]
+packages = ["coreaperate"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
