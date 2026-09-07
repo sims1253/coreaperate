@@ -1,0 +1,6 @@
+{
+  "client": "B",
+  "ipc": "C:/local-coreaperate/B",
+  "url": "ws://127.0.0.1:8765",
+  "token": "REPLACE_WITH_B_CREDENTIAL_GENERATED_BY_INIT"
+}

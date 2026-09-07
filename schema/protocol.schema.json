@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:coreaperate:protocol:1",
+  "title": "Coreaperate proposal v1 (additional semantic validation in model.py/store.py)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "session", "id", "track", "revision", "epoch", "type", "payload"],
+  "properties": {
+    "protocol": {"const": 1},
+    "session": {"$ref": "#/$defs/id"},
+    "id": {"$ref": "#/$defs/id"},
+    "track": {"$ref": "#/$defs/id"},
+    "revision": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "epoch": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "type": {"enum": ["claim", "release", "handover", "properties", "put_item", "delete_item", "undo"]},
+    "payload": {"type": "object"}
+  },
+  "allOf": [
+    {"if": {"properties": {"type": {"enum": ["claim", "release", "undo"]}}}, "then": {"properties": {"payload": {"maxProperties": 0}}}},
+    {"if": {"properties": {"type": {"const": "handover"}}}, "then": {"properties": {"payload": {"required": ["owner"], "additionalProperties": false, "properties": {"owner": {"$ref": "#/$defs/id"}}}}}},
+    {"if": {"properties": {"type": {"const": "delete_item"}}}, "then": {"properties": {"payload": {"required": ["id"], "additionalProperties": false, "properties": {"id": {"$ref": "#/$defs/id"}}}}}},
+    {"if": {"properties": {"type": {"const": "put_item"}}}, "then": {"properties": {"payload": {"required": ["item"], "additionalProperties": false, "properties": {"item": {"$ref": "#/$defs/item"}}}}}},
+    {"if": {"properties": {"type": {"const": "properties"}}}, "then": {"properties": {"payload": {"required": ["name", "volume", "pan"], "additionalProperties": false, "properties": {"name": {"type": "string", "maxLength": 512}, "volume": {"type": "integer", "minimum": 0, "maximum": 16000000}, "pan": {"type": "integer", "minimum": -1000000, "maximum": 1000000}}}}}}
+  ],
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9{}_-]{1,80}$"},
+    "note": {"type": "array", "minItems": 7, "maxItems": 7, "prefixItems": [
+      {"type": "integer", "minimum": 0, "maximum": 10000000000},
+      {"type": "integer", "minimum": 1, "maximum": 10000000000},
+      {"type": "integer", "minimum": 0, "maximum": 127},
+      {"type": "integer", "minimum": 1, "maximum": 127},
+      {"type": "integer", "minimum": 0, "maximum": 15},
+      {"type": "integer", "minimum": 0, "maximum": 1},
+      {"const": 0}
+    ]},
+    "item": {"type": "object", "additionalProperties": false, "required": ["id", "take", "position", "length", "notes"], "properties": {
+      "id": {"$ref": "#/$defs/id"}, "take": {"$ref": "#/$defs/id"},
+      "position": {"type": "integer", "minimum": 0, "maximum": 1000000000000},
+      "length": {"type": "integer", "minimum": 1, "maximum": 10000000000},
+      "notes": {"type": "array", "maxItems": 2048, "items": {"$ref": "#/$defs/note"}}
+    }}
+  }
+}
